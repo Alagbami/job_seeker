@@ -65,7 +65,7 @@ const Resume = () => {
                                 <img
                                     src={imageUrl}
                                     className="w-full h-full object-contain rounded-2xl"
-                                    title="resume"
+                                    title="click to view full resume"
                                 />
                             </a>
                         </div>
