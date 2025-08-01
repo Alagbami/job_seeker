@@ -28,24 +28,31 @@ const JobsPage: React.FC = () => {
 
     const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
+    const rapidBaseUrl = import.meta.env.VITE_RAPIDAPI_KEY;
+
+    
     const fetchJobs = async () => {
         setLoading(true);
         try {
             const searchParams = new URLSearchParams({
                 query: `${query} ${location} ${jobType}`.trim(),
                 page: page.toString(),
-                num_pages: '1',
+                num_pages: '2', // <-- Show 10 jobs per page
             });
 
             const response = await fetch(`https://jsearch.p.rapidapi.com/search?${searchParams}`, {
                 method: 'GET',
                 headers: {
-                    'X-RapidAPI-Key': '0f7daefc28msh6559303adadcd2dp1658d3jsn8c2f5808ad9a',
+                    'X-RapidAPI-Key': rapidBaseUrl as string,
                     'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
                 },
             });
 
             const data = await response.json();
+            console.log('Job properties:', data.data);
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to fetch jobs');
+            }
             setJobs(data.data || []);
             setTotalPages(data?.metadata?.total_pages || 1);
         } catch (error) {

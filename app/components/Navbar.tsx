@@ -12,9 +12,6 @@ const Navbar = () => {
             <Link to="/auth" className="primary-button w-fit">
                 Sign In
             </Link>
-            <Link to="/auth/logout" className="primary-button w-fit">
-                Log Out as Employer
-            </Link>
             <Link to="/upload" className="primary-button w-fit">
                 Upload Resume
             </Link>
