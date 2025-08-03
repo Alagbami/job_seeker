@@ -37,7 +37,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, onSave, saved, searchQu
 
     return (
         <div
-            className="cursor-pointer border border-gray-700 p-4 rounded-lg bg-[#1c1c1f] shadow hover:shadow-lg transition duration-300"
+            className="cursor-pointer border border-gray-700 p-4 rounded-lg bg-yellow-600 shadow hover:shadow-lg transition duration-300"
             onClick={onClick}
         >
             {job.company_logo && (
