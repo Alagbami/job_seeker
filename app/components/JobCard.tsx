@@ -37,54 +37,65 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, onSave, saved, searchQu
 
     return (
         <div
-            className="cursor-pointer border border-gray-700 p-4 rounded-lg bg-yellow-600 shadow hover:shadow-lg transition duration-300"
+            className="cursor-pointer border border-gray-200 p-6 rounded-2xl bg-gradient-to-br from-yellow-100 to-yellow-300 shadow-lg hover:shadow-2xl transition duration-300 relative"
             onClick={onClick}
         >
+            {/* Company Logo */}
             {job.company_logo && (
-                <img src={job.company_logo} alt="logo" className="h-8 w-8 object-contain mb-2" />
+                <div className="absolute top-4 right-4">
+                    <img src={job.company_logo} alt="logo" className="h-10 w-10 object-contain rounded-full border border-gray-300 shadow" />
+                </div>
             )}
 
-            <h3 className="text-white text-lg font-semibold mb-1">
+            {/* Job Title */}
+            <h3 className="text-gray-900 text-xl font-bold mb-1">
                 {highlightMatch(job.job_title, searchQuery)}
             </h3>
 
-            <p className="text-gray-400 text-sm mb-2">
-                {job.company_name} • {job.location}
+            {/* Company and Location */}
+            <p className="text-gray-600 text-sm mb-2 font-medium">
+                {job.company_name} <span className="mx-1">•</span> {job.location}
             </p>
 
+            {/* Job Type, Employment Type, Days Ago */}
             <div className="flex flex-wrap gap-2 mt-2 text-xs">
                 {job.job_type && (
-                    <span className="px-2 py-0.5 bg-blue-600 rounded-full text-white">
-            {job.job_type}
-          </span>
+                    <span className="px-2 py-0.5 bg-blue-600 rounded-full text-white font-semibold shadow">
+                        {job.job_type}
+                    </span>
                 )}
                 {job.employment_type && (
-                    <span className="px-2 py-0.5 bg-green-600 rounded-full text-white">
-            {job.employment_type}
-          </span>
+                    <span className="px-2 py-0.5 bg-green-600 rounded-full text-white font-semibold shadow">
+                        {job.employment_type}
+                    </span>
                 )}
                 {daysAgo !== null && (
-                    <span className="text-gray-400 text-xs">{daysAgo}d ago</span>
+                    <span className="text-gray-500 text-xs bg-gray-100 px-2 py-0.5 rounded-full">{daysAgo}d ago</span>
                 )}
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-3">
-                {techStack.slice(0, 5).map((tag: string, idx: number) => (
-                    <span
-                        key={idx}
-                        className="bg-gray-700 text-white text-xs px-2 py-0.5 rounded-full"
-                    >
-            {tag}
-          </span>
-                ))}
-            </div>
+            {/* Tech Stack */}
+            {techStack.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                    {techStack.slice(0, 5).map((tag: string, idx: number) => (
+                        <span
+                            key={idx}
+                            className="bg-gray-800 text-white text-xs px-2 py-0.5 rounded-full font-medium shadow"
+                        >
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            )}
 
-            <div className="mt-4 flex justify-between items-center">
+            {/* Actions */}
+            <div className="mt-6 flex justify-between items-center">
                 <a
                     href={job.job_google_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline text-sm"
+                    className="text-blue-600 hover:underline text-sm font-semibold"
+                    onClick={e => e.stopPropagation()}
                 >
                     View Job
                 </a>
@@ -95,10 +106,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, onSave, saved, searchQu
                             e.stopPropagation();
                             onSave();
                         }}
-                        className={`text-xs px-3 py-1 rounded-md border ${
+                        className={`text-xs px-4 py-1 rounded-lg border font-semibold transition-colors duration-200 ${
                             saved
-                                ? 'bg-white text-black font-semibold'
-                                : 'border-white text-white hover:bg-white hover:text-black transition-colors'
+                                ? 'bg-white text-blue-700 border-blue-700 shadow'
+                                : 'bg-blue-600 text-white border-blue-600 hover:bg-white hover:text-blue-700'
                         }`}
                     >
                         {saved ? 'Saved' : 'Save'}
@@ -106,7 +117,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, onSave, saved, searchQu
 
                     <button
                         onClick={handleShare}
-                        className="text-xs px-3 py-1 border border-white text-white hover:bg-white hover:text-black rounded-md"
+                        className="text-xs px-4 py-1 rounded-lg border border-yellow-500 text-yellow-700 bg-white hover:bg-yellow-500 hover:text-white font-semibold transition-colors duration-200 shadow"
                     >
                         Share
                     </button>
