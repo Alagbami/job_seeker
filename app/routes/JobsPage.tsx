@@ -14,6 +14,8 @@ interface Job {
     employment_type?: string;
 }
 
+
+
 const JobsPage: React.FC = () => {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
