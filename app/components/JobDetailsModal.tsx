@@ -321,7 +321,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose }) => {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-md bg-white border border-gray-200 w-full"
+                                    className="truncate inline-flex items-center gap-2 text-xs px-3 py-1 rounded-md bg-white border border-gray-200 w-full"
                                   >
                                     {label}
                                   </a>
@@ -414,7 +414,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ job, onClose }) => {
         <div className="border-t border-gray-100 p-4 bg-white flex items-center justify-between gap-3">
           <div className="text-sm text-gray-600">Share or open the job externally</div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-2">
             <button
               type="button"
               onClick={handleCopy}
