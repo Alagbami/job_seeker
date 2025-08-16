@@ -1,6 +1,6 @@
 // pages/JobsPage.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/commonComp/Navbar';
 import JobDetailsModal from '../components/JobDetailsModal';
 import SearchForm from '~/components/JobPageComp/SearchForm';
 import FiltersBar from '~/components/JobPageComp/FiltersBar';
