@@ -1,84 +1,88 @@
 // components/commonComp/Navbar.tsx
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { usePuterStore } from "~/lib/puter";
 
 /**
- * SafeLink:
- * - renders a plain anchor on the server so react-router DOM internals don't run during SSR
- * - renders react-router's <Link> on the client for SPA navigation
+ * SafeLink
+ * - Always renders a plain <a href="..."> so SSR & client DOM match (avoids hydration mismatch).
+ * - On client click we attempt SPA navigation via history.pushState + dispatch popstate.
+ * - Falls back to normal anchor navigation when modifier keys are used or in case of errors.
+ *
+ * We omit `href` from AnchorHTMLAttributes in the props so we avoid typing conflicts
+ * (e.g. different aria-current typing between anchor and Link types).
  */
-const isServer = typeof window === "undefined";
-
-interface SafeLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+interface SafeLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
   to: string;
   children: React.ReactNode;
-  className?: string;
   onClick?: () => void;
-  "aria-current"?: boolean | "false" | "true" | "page" | "step" | "location" | "date" | "time" | undefined;
 }
+const SafeLink: React.FC<SafeLinkProps> = ({ to, children, onClick, ...rest }) => {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onClick) onClick();
 
-const SafeLink: React.FC<SafeLinkProps> = ({ to, children, className, onClick, ...rest }) => {
-  if (isServer) {
-    return (
-      <a href={to} className={className} onClick={onClick} {...(rest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}>
-        {children}
-      </a>
-    );
-  }
+    // allow normal navigation when modifier keys used or non-left click
+    if (
+      e.defaultPrevented ||
+      e.button !== 0 ||
+      e.metaKey ||
+      e.altKey ||
+      e.ctrlKey ||
+      e.shiftKey ||
+      (e.currentTarget.getAttribute("target") || "").length > 0
+    ) {
+      return;
+    }
+
+    // Attempt SPA navigation using history API. Keep href for SSR/non-JS fallback.
+    try {
+      e.preventDefault();
+      const url = to;
+      const current = window.location.pathname + window.location.search + window.location.hash;
+      if (url !== current) {
+        window.history.pushState({}, "", url);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch {
+      // If anything goes wrong, just let the browser handle the anchor
+    }
+  };
+
   return (
-    <Link to={to} className={className} onClick={onClick} {...(rest as any)}>
+    <a href={to} onClick={handleClick} {...(rest as any)}>
       {children}
-    </Link>
+    </a>
   );
 };
 
-/**
- * Lightweight auth helper — cast user to `any` for resiliency until your PuterUser type is extended.
- */
+/* -------------------------
+   Auth helper (uses your store)
+   ------------------------- */
 const useAuth = () => {
   const { auth } = usePuterStore();
   const isAuthenticated = !!auth?.isAuthenticated;
-  const signIn = auth?.signIn || (() => {});
-  const signOut = auth?.signOut || (() => {});
+  const signIn = auth?.signIn || (async () => {});
+  const signOut = auth?.signOut || (async () => {});
   const user: any = auth?.user || null;
   return { isAuthenticated, signIn, signOut, user };
 };
 
-const IconSearch = (props: { className?: string }) => (
-  <svg className={props.className} viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const IconJobs = (props: { className?: string }) => (
-  <svg className={props.className} viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M4 7h16M8 7v12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <rect x="2" y="3" width="20" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);
-
-const IconUpload = (props: { className?: string }) => (
-  <svg className={props.className} viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M12 3v12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M8 7l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    <rect x="3" y="17" width="18" height="4" rx="1" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);
-
-const AvatarPlaceholder: React.FC<{ name?: string; size?: number }> = ({ name, size = 48 }) => {
+/* -------------------------
+   Small presentational helpers
+   ------------------------- */
+const AvatarPlaceholder: React.FC<{ name?: string; size?: number }> = ({ name, size = 40 }) => {
   const initials =
     (name || "")
       .split(" ")
-      .map((p) => p[0])
+      .map((p) => (p ? p[0] : ""))
       .join("")
       .slice(0, 2)
       .toUpperCase() || "R";
   return (
     <div
-      className="flex items-center justify-center bg-gray-100 text-gray-800 rounded-full flex-shrink-0"
-      style={{ width: size, height: size, fontSize: Math.max(12, Math.floor(size / 2.6)) }}
+      className="inline-flex items-center justify-center bg-gray-100 text-gray-800 rounded-full flex-shrink-0"
+      style={{ width: size, height: size, fontSize: Math.max(10, Math.floor(size / 2.8)) }}
       aria-hidden
     >
       {initials}
@@ -86,79 +90,78 @@ const AvatarPlaceholder: React.FC<{ name?: string; size?: number }> = ({ name, s
   );
 };
 
-const getUserName = (user: any): string | undefined => {
-  if (!user) return undefined;
-  return user.name ?? user.fullName ?? user.displayName ?? user.email ?? undefined;
+const IconSearch: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Safely derive a display name from various possible user shapes */
+const getDisplayName = (user: any): string | null => {
+  if (!user) return null;
+  // prefer username from your PuterUser, fallback to common fields if available
+  return (user.username ?? user.name ?? user.fullName ?? user.displayName ?? user.email) || null;
 };
 
-const safeGetPathname = (): string => {
-  try {
-    if (typeof window !== "undefined" && window.location && window.location.pathname) {
-      return window.location.pathname;
-    }
-  } catch (e) { /* ignore */ }
-  return "/";
-};
-
-/** NAV item component for mobile with large tap area */
-const MobileNavItem: React.FC<{ to: string; label: string; onClick?: () => void; active?: boolean; icon?: React.ReactNode }> = ({ to, label, onClick, active, icon }) => {
-  return (
-    <SafeLink
-      to={to}
-      onClick={onClick}
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-        active ? "bg-sky-50 text-sky-800" : "text-gray-800 hover:bg-gray-50"
-      }`}
-      aria-current={active ? "page" : undefined}
-    >
-      <span className="w-6 h-6 text-gray-600">{icon}</span>
-      <span className="text-base font-medium">{label}</span>
-    </SafeLink>
-  );
-};
-
+/* -------------------------
+   Navbar component
+   ------------------------- */
 const Navbar: React.FC = () => {
   const { isAuthenticated, signIn, signOut, user } = useAuth();
-  const displayName = getUserName(user);
-  const [pathname, setPathname] = useState<string>(safeGetPathname());
+  const displayName = getDisplayName(user);
 
+  // clientPath is null during SSR. Set on mount to avoid hydration mismatch.
+  const [clientPath, setClientPath] = useState<string | null>(null);
   useEffect(() => {
-    const onPop = () => setPathname(safeGetPathname());
-    window.addEventListener?.("popstate", onPop);
-    return () => window.removeEventListener?.("popstate", onPop);
+    setClientPath(typeof window !== "undefined" ? window.location.pathname : "/");
+    const onPop = () => setClientPath(window.location?.pathname ?? "/");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // mobile drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement | null>(null);
-  const firstFocusableRef = useRef<HTMLInputElement | null>(null);
+  const firstInputRef = useRef<HTMLInputElement | null>(null);
 
-  // prevent body scroll when drawer open
+  // desktop profile menu
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
+
+  // Prevent background scroll when drawer is open
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (drawerOpen) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = prev; };
+      return () => {
+        document.body.style.overflow = prev;
+      };
     }
   }, [drawerOpen]);
 
-  // close on outside click or escape, and focus-trap basic
+  // Close drawer/profile on outside click & keyboard, trap focus in drawer
   useEffect(() => {
-    if (!drawerOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
+      if (drawerOpen && drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
         setDrawerOpen(false);
+      }
+      if (profileOpen && profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawerOpen(false);
-      if (e.key === "Tab") {
-        // basic trap: if no focusable inside, prevent leaving
-        const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+        setProfileOpen(false);
+      }
+      if (e.key === "Tab" && drawerOpen && drawerRef.current) {
+        const focusable = drawerRef.current.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
-        if (!focusables || focusables.length === 0) return;
-        const nodes = Array.from(focusables);
+        if (!focusable || focusable.length === 0) return;
+        const nodes = Array.from(focusable);
         const first = nodes[0];
         const last = nodes[nodes.length - 1];
         if (e.shiftKey && document.activeElement === first) {
@@ -170,20 +173,24 @@ const Navbar: React.FC = () => {
         }
       }
     };
+
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
-    // auto-focus search input
-    setTimeout(() => firstFocusableRef.current?.focus(), 50);
+    // autofocus first field in drawer
+    if (drawerOpen) setTimeout(() => firstInputRef.current?.focus(), 50);
+
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, profileOpen]);
 
   const navItems = [
-    { to: "/jobs", label: "Find Jobs", icon: <IconJobs className="w-5 h-5" /> },
-    { to: "/upload", label: "Upload Resume", icon: <IconUpload className="w-5 h-5" /> },
+    { to: "/jobs", label: "Find Jobs" },
+    { to: "/upload", label: "Upload Resume" },
   ];
+
+  const activeClass = (to: string) => (clientPath ? (clientPath.startsWith(to) ? "bg-sky-100 text-sky-800" : "") : "");
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
@@ -200,30 +207,78 @@ const Navbar: React.FC = () => {
           </SafeLink>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex md:gap-4 md:items-center" aria-label="Primary">
-            <SafeLink to="/jobs" className={`px-3 py-2 rounded-md text-sm font-medium ${pathname.startsWith("/jobs") ? "bg-sky-100 text-sky-800" : "text-gray-700 hover:bg-gray-50"}`}>Find Jobs</SafeLink>
-            <SafeLink to="/upload" className={`px-3 py-2 rounded-md text-sm font-medium ${pathname.startsWith("/upload") ? "bg-sky-100 text-sky-800" : "text-gray-700 hover:bg-gray-50"}`}>Upload Resume</SafeLink>
+          <nav className="hidden md:flex md:gap-3 md:items-center" aria-label="Primary">
+            <SafeLink to="/jobs" className={`px-3 py-2 rounded-md text-sm font-medium ${activeClass("/jobs")}`}>Find Jobs</SafeLink>
+            <SafeLink to="/upload" className={`px-3 py-2 rounded-md text-sm font-medium ${activeClass("/upload")}`}>Upload Resume</SafeLink>
           </nav>
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
-            {/* compact desktop search */}
-            <div className="hidden md:flex">
-              <form action="/jobs" method="get">
+            {/* Compact search on desktop */}
+            <div className="hidden md:flex items-center">
+              <form action="/jobs" method="get" className="relative">
                 <label htmlFor="nav-search" className="sr-only">Search jobs</label>
                 <div className="relative">
-                  <IconSearch className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input id="nav-search" name="q" className="w-48 pl-10 pr-3 py-1 rounded-full border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Search jobs..." />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <IconSearch className="w-4 h-4" />
+                  </span>
+                  <input
+                    id="nav-search"
+                    name="q"
+                    className="w-48 pl-10 pr-3 py-1 rounded-full border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    placeholder="Search jobs..."
+                    aria-label="Search jobs"
+                  />
                 </div>
               </form>
             </div>
 
-            {/* desktop account */}
-            <div className="hidden md:flex md:items-center md:gap-2">
-              <div className="flex items-center gap-2">
-                <AvatarPlaceholder name={displayName} size={36} />
+            {/* Desktop account: avatar + dropdown */}
+            <div className="hidden md:flex items-center gap-3 relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((s) => !s)}
+                aria-haspopup="true"
+                aria-expanded={profileOpen}
+                className="inline-flex items-center gap-3 px-3 py-1 rounded-md hover:bg-gray-50 focus:outline-none"
+              >
+                <AvatarPlaceholder name={displayName ?? undefined} size={36} />
                 <div className="text-sm text-gray-700">{isAuthenticated ? (displayName ?? "Account") : "Guest"}</div>
-              </div>
+                <svg className="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              {profileOpen && (
+                <div role="menu" aria-label="Account menu" className="absolute right-0 mt-2 w-44 bg-white border border-gray-100 rounded-md shadow-lg py-2">
+                  {isAuthenticated ? (
+                    <>
+                      <SafeLink to="/profile" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Profile</SafeLink>
+                      <button
+                        onClick={async () => {
+                          await signOut();
+                          setProfileOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        Sign out
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={async () => {
+                          await signIn();
+                          setProfileOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        Sign in
+                      </button>
+                      <SafeLink to="/signup" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Sign up</SafeLink>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -245,7 +300,7 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Drawer (right-side) */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-sm transform transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`h-screen fixed inset-y-0 right-0 z-50 flex w-full max-w-sm transform transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}
         role="dialog"
         aria-modal={drawerOpen}
         aria-label="Main menu"
@@ -258,11 +313,7 @@ const Navbar: React.FC = () => {
         />
 
         {/* Panel */}
-        <aside
-          ref={drawerRef}
-          className="relative ml-auto h-full w-full max-w-sm bg-white shadow-xl overflow-y-auto"
-        >
-          {/* Header inside drawer */}
+        <aside ref={drawerRef} className="relative ml-auto h-full w-full max-w-sm bg-white shadow-xl overflow-y-auto">
           <div className="flex items-center justify-between p-4 border-b">
             <SafeLink to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3">
               <div className="rounded-md bg-yellow-300 p-1">
@@ -272,7 +323,6 @@ const Navbar: React.FC = () => {
               </div>
               <span className="font-semibold text-gray-900">RESUMIND</span>
             </SafeLink>
-
             <button aria-label="Close menu" onClick={() => setDrawerOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-gray-100 focus:outline-none">
               <svg className="h-5 w-5 text-gray-700" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -289,7 +339,7 @@ const Navbar: React.FC = () => {
               </div>
               <input
                 id="mobile-search"
-                ref={firstFocusableRef}
+                ref={firstInputRef}
                 name="q"
                 placeholder="Search jobs, titles, companies..."
                 className="flex-1 rounded-md border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
@@ -298,10 +348,10 @@ const Navbar: React.FC = () => {
             </div>
           </div>
 
-          {/* Profile card */}
+          {/* Profile + actions */}
           <div className="p-4 border-b">
             <div className="flex items-center gap-4">
-              <AvatarPlaceholder name={displayName} size={56} />
+              <AvatarPlaceholder name={displayName ?? undefined} size={56} />
               <div>
                 <div className="text-sm font-semibold text-gray-900">{isAuthenticated ? (displayName ?? "Account") : "Welcome"}</div>
                 <div className="text-xs text-gray-500">{isAuthenticated ? "View your profile and settings" : "Sign in or create an account"}</div>
@@ -312,11 +362,11 @@ const Navbar: React.FC = () => {
               {isAuthenticated ? (
                 <>
                   <SafeLink to="/profile" onClick={() => setDrawerOpen(false)} className="block text-center px-3 py-2 rounded-md bg-sky-50 text-sky-700 font-medium">Profile</SafeLink>
-                  <button onClick={() => { signOut(); setDrawerOpen(false); }} className="block px-3 py-2 rounded-md bg-gray-100 text-gray-800">Sign out</button>
+                  <button onClick={async () => { await signOut(); setDrawerOpen(false); }} className="block px-3 py-2 rounded-md bg-gray-100 text-gray-800">Sign out</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => { signIn(); setDrawerOpen(false); }} className="block text-center px-3 py-2 rounded-md bg-sky-600 text-white font-medium">Sign in</button>
+                  <button onClick={async () => { await signIn(); setDrawerOpen(false); }} className="block text-center px-3 py-2 rounded-md bg-sky-600 text-white font-medium">Sign in</button>
                   <SafeLink to="/signup" onClick={() => setDrawerOpen(false)} className="block px-3 py-2 rounded-md bg-gray-100 text-gray-800 text-center">Sign up</SafeLink>
                 </>
               )}
@@ -327,19 +377,19 @@ const Navbar: React.FC = () => {
           <div className="p-4">
             <nav className="flex flex-col gap-2" aria-label="Mobile primary">
               {navItems.map((it) => (
-                <MobileNavItem
+                <SafeLink
                   key={it.to}
                   to={it.to}
-                  label={it.label}
                   onClick={() => setDrawerOpen(false)}
-                  active={pathname.startsWith(it.to)}
-                  icon={it.icon}
-                />
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg ${clientPath && clientPath.startsWith(it.to) ? "bg-sky-50 text-sky-800" : "text-gray-800 hover:bg-gray-50"}`}
+                >
+                  <span className="text-base font-medium">{it.label}</span>
+                </SafeLink>
               ))}
             </nav>
           </div>
 
-          {/* Footer quick links */}
+          {/* Footer */}
           <div className="p-4 border-t">
             <div className="flex flex-col gap-2">
               <SafeLink to="/terms" onClick={() => setDrawerOpen(false)} className="text-sm text-gray-600 hover:underline">Terms</SafeLink>

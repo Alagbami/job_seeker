@@ -30,12 +30,20 @@ type Pages = {
   "/jobs": {
     params: {};
   };
+  "/profile": {
+    params: {};
+  };
+  "/*": {
+    params: {
+      "*": string;
+    };
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/auth" | "/upload" | "/resume/:id" | "/wipe" | "/jobs";
+    page: "/" | "/auth" | "/upload" | "/resume/:id" | "/wipe" | "/jobs" | "/profile" | "/*";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -60,5 +68,13 @@ type RouteFiles = {
   "routes/JobsPage.tsx": {
     id: "routes/JobsPage";
     page: "/jobs";
+  };
+  "routes/ProfilePage.tsx": {
+    id: "routes/ProfilePage";
+    page: "/profile";
+  };
+  "routes/not-found.tsx": {
+    id: "routes/not-found";
+    page: "/*";
   };
 };

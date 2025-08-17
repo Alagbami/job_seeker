@@ -7,4 +7,9 @@ export default [
     route('/resume/:id', 'routes/resume.tsx'),
     route('/wipe', 'routes/wipe.tsx'),
     route('/jobs', 'routes/JobsPage.tsx'),
+    route('/profile', 'routes/ProfilePage.tsx'),
+
+    // Catch-all: handles 404s and weird Chrome extension probes
+    route("*", "routes/not-found.tsx"),
+
 ] satisfies RouteConfig;
